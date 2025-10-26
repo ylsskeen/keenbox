@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動輔助學習平台</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // MathJax Configuration: Explicitly define the delimiters for LaTeX math.
+        // This ensures that dynamically added content with $...$ is correctly recognized.
+        MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']]
+          },
+          svg: {
+            fontCache: 'global'
+          }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 核心變數與主題系統 --- */
+        :root {
+            --font-family: 'Noto Sans TC', sans-serif;
+            /* 淺色主題 */
+            --bg-gradient-start: #f4f7fa;
+            --bg-gradient-end: #e2ebf5;
+            --text-primary: #1f2937;
+            --text-secondary: #4b5563;
+            --sidebar-bg: rgba(255, 255, 255, 0.6);
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --card-border: rgba(255, 255, 255, 0.9);
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --input-bg: rgba(255, 255, 255, 0.8);
+            --input-border: #d1d5db;
+            --input-focus-border: var(--primary-color-start);
+            --scroll-thumb: #b0c4de;
+            --scroll-track: #e0e7ff;
+
+            /* 色彩 */
+            --primary-color-start: #4a90e2;
+            --primary-color-end: #50e3c2;
+            --secondary-color-start: #667eea;
+            --secondary-color-end: #764ba2;
+            --danger-color: #ff6b6b;
+            --success-color: #28a745;
+            --warning-color: #f6ad55;
+        }
+
+        body.dark-theme {
+            /* 深色主題 */
+            --bg-gradient-start: #1e293b;
+            --bg-gradient-end: #0f172a;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --sidebar-bg: rgba(30, 41, 59, 0.6);
+            --card-bg: rgba(51, 65, 85, 0.5);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.25);
+            --input-bg: rgba(71, 85, 105, 0.5);
+            --input-border: #475569;
+            --input-focus-border: var(--primary-color-start);
+            --scroll-thumb: #4a5568;
+            --scroll-track: #2d3748;
+        }
+
+        /* --- 全局樣式 --- */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: background 0.5s ease, color 0.5s ease;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* --- 主佈局 (側邊欄 + 主內容) --- */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-right: 1px solid var(--card-border);
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .main-container {
+            flex-grow: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        /* --- 側邊欄導航 --- */
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: -webkit-linear-gradient(45deg, var(--primary-color-start), var(--primary-color-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 2.5rem;
+            text-align: center;
+        }
+
+        .nav-menu { list-style: none; }
+        .nav-item { margin-bottom: 0.5rem; }
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.9rem 1.2rem;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover {
+            background: rgba(74, 144, 226, 0.1);
+            color: var(--primary-color-start);
+        }
+        .nav-link.active {
+            background: linear-gradient(90deg, var(--primary-color-start), var(--primary-color-end));
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+        }
+        .nav-link span { margin-left: 1rem; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            text-align: center;
+        }
+
+        .theme-switch {
+            display: inline-block;
+            height: 34px; position: relative; width: 60px;
+        }
+        .theme-switch input { display: none; }
+        .slider { background-color: #ccc; bottom: 0; cursor: pointer; left: 0; position: absolute; right: 0; top: 0; transition: .4s; border-radius: 34px; }
+        .slider:before { background-color: #fff; bottom: 4px; content: ""; height: 26px; left: 4px; position: absolute; transition: .4s; width: 26px; border-radius: 50%; }
+        input:checked + .slider { background: linear-gradient(90deg, var(--primary-color-start), var(--secondary-color-start)); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* --- 主內容 --- */
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .view-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+        }
+        
+        /* 卡片 */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 1.75rem;
+            box-shadow: 0 8px 32px 0 var(--shadow-color);
+            transition: all 0.3s ease;
+        }
+
+        .card-title {
+            font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem;
+        }
+
+        /* 網格佈局 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        /* 儀表板 */
+        .stat-card { text-align: center; }
+        .stat-card .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .stat-card h3 { font-size: 1.1rem; color: var(--text-secondary); }
+        .stat-card p { font-size: 2rem; font-weight: 700; }
+        .progress-bar { width: 100%; height: 10px; background: var(--input-border); border-radius: 5px; overflow: hidden; margin-top: 0.5rem; }
+        .progress { height: 100%; width: 60%; background: linear-gradient(90deg, var(--primary-color-start), var(--primary-color-end)); border-radius: 5px; }
+
+        /* AI 助教聊天介面 */
+        .chat-container {
+            display: flex; flex-direction: column; height: 65vh;
+        }
+        .chat-messages {
+            flex-grow: 1; overflow-y: auto; padding: 1rem;
+        }
+        .chat-message { display: flex; margin-bottom: 1rem; }
+        .chat-message.user { justify-content: flex-end; }
+        .chat-bubble { max-width: 70%; padding: 0.8rem 1.2rem; border-radius: 18px; white-space: pre-wrap; }
+        .chat-bubble.ai { background: var(--input-bg); border-top-left-radius: 4px; }
+        .chat-bubble.user { background: var(--primary-color-start); color: white; border-top-right-radius: 4px; }
+        .chat-input-area { display: flex; padding-top: 1rem; border-top: 1px solid var(--input-border); }
+        .chat-input { flex-grow: 1; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 12px; background: var(--input-bg); color: var(--text-primary); resize: none; }
+        .chat-input:focus { outline: none; border-color: var(--primary-color-start); }
+        .chat-buttons { display: flex; align-items: center; gap: 0.5rem; margin-left: 1rem; }
+        .btn { padding: 0.7rem 1.2rem; border: none; border-radius: 10px; color: white; cursor: pointer; transition: all 0.3s ease; font-weight: 500; }
+        .btn:disabled { background: var(--input-border); cursor: not-allowed; }
+        .btn-primary { background: linear-gradient(90deg, var(--primary-color-start), var(--primary-color-end)); }
+        
+        /* 基礎觀念學習頁 */
+        .learning-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+        .form-group { flex: 1; }
+        .form-group label { display: block; margin-bottom: .5rem; font-weight: 500; color: var(--text-secondary); }
+        .form-select { width: 100%; padding: .75rem; border-radius: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-primary); }
+        .unit-list { list-style: none; }
+        .unit-item { 
+            padding: 0.75rem 1rem; /* Reduced padding */
+            border-radius: 8px; /* Slightly smaller radius */
+            margin-bottom: 0.15rem; /* Reduced margin */
+            cursor: pointer; 
+            transition: background .3s; 
+        }
+        .unit-item:hover { background: rgba(74, 144, 226, 0.1); }
+        .unit-item.loading-item { color: var(--text-secondary); cursor: default; }
+        .unit-item.loading-item:hover { background: transparent; }
+        .unit-item-main { font-weight: 500; position: relative; padding-left: 2rem; } /* Add padding for icon */
+        .unit-item-main::before { /* Collapsed/Expanded icon */
+            content: '+';
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2em;
+            color: var(--text-secondary);
+        }
+        .unit-item-main.expanded::before { content: '-'; }
+        .unit-item-sub { 
+            padding-left: 2.5rem; 
+            font-size: 0.95em; 
+            display: none; /* Initially hidden */
+        }
+        .unit-item-sub.visible { display: block; } /* Visible state */
+        .unit-content { margin-top: 2rem; }
+        #unit-summary-content { white-space: pre-wrap; }
+        #pdf-status .clear-pdf-btn {
+            margin-left: 10px;
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 練習測驗 */
+        .quiz-question { margin-bottom: 2rem; }
+        .quiz-options { list-style: none; margin-top: 1rem; }
+        .quiz-options li { margin-bottom: 0.5rem; }
+        .quiz-options label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 8px; }
+        .quiz-options label:hover { background: rgba(74, 144, 226, 0.1); }
+        .quiz-result { margin-top: 2rem; font-size: 1.2em; font-weight: bold; }
+        .correct-answer { color: var(--success-color); }
+        .wrong-answer { color: var(--danger-color); }
+
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 1rem; border-right: none; border-bottom: 1px solid var(--card-border); }
+            .logo { margin: 0; }
+            .nav-menu { display: flex; gap: 0.5rem; }
+            .nav-link span { display: none; }
+            .nav-link { padding: 0.7rem; }
+            .main-container { padding: 1rem; }
+            .view-title { font-size: 1.8rem; }
+            .learning-controls { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div>
+            <div class="logo">學習平台</div>
+            <nav>
+                <ul class="nav-menu">
+                    <li class="nav-item"><a href="#dashboard" class="nav-link active" data-view="dashboard-view"><span>🎓</span> 儀表板</a></li>
+                    <li class="nav-item"><a href="#learning" class="nav-link" data-view="learning-view"><span>🧮</span> 基礎觀念</a></li>
+                    <li class="nav-item"><a href="#ai" class="nav-link" data-view="ai-view"><span>🧠</span> AI 助教</a></li>
+                    <li class="nav-item"><a href="#quiz" class="nav-link" data-view="quiz-view"><span>📘</span> 練習測驗</a></li>
+                    <li class="nav-item"><a href="#analytics" class="nav-link" data-view="analytics-view"><span>📊</span> 學習歷程</a></li>
+                    <li class="nav-item"><a href="#settings" class="nav-link" data-view="settings-view"><span>⚙️</span> 系統設定</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="sidebar-footer">
+             <label class="theme-switch">
+                <input type="checkbox" id="theme-checkbox" />
+                <div class="slider"></div>
+            </label>
+        </div>
+    </aside>
+
+    <main class="main-container">
+        <!-- 儀表板 View -->
+        <div id="dashboard-view" class="view active">
+            <h1 class="view-title">儀表板</h1>
+            <div class="grid-container">
+                <div class="card stat-card">
+                    <div class="icon">🚀</div>
+                    <h3>今日進度</h3>
+                    <p>60%</p>
+                    <div class="progress-bar"><div class="progress" style="width: 60%;"></div></div>
+                </div>
+                <div class="card stat-card">
+                    <div class="icon">🔥</div>
+                    <h3>連續學習</h3>
+                    <p>12 天</p>
+                </div>
+                <div class="card stat-card">
+                    <div class="icon">🎯</div>
+                    <h3>錯題數</h3>
+                    <p>8 題</p>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 2rem;">
+                <h2 class="card-title">AI 推薦學習路徑</h2>
+                <ul>
+                    <li>建議複習：三角函數的圖形變換</li>
+                    <li>挑戰練習：對數運算應用題</li>
+                    <li>新單元：數列與級數</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 基礎觀念 View -->
+        <div id="learning-view" class="view">
+            <h1 class="view-title">基礎觀念學習</h1>
+            <div class="card">
+                <div class="learning-controls">
+                    <div class="form-group">
+                        <label for="stage-select">選擇學程</label>
+                        <select id="stage-select" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="grade-select">選擇年級</label>
+                        <select id="grade-select" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="publisher-select">選擇版本</label>
+                        <select id="publisher-select" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="subject-select">選擇科目</label>
+                        <select id="subject-select" class="form-select"></select>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <button id="fetch-units-btn" class="btn btn-primary">送出查詢</button>
+                </div>
+                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--input-border);">
+                    <h3 class="card-title" style="font-size: 1.1em; margin-bottom: 0.75rem;">輔助教材來源</h3>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button id="upload-pdf-btn" class="btn btn-secondary">上傳 PDF 講義</button>
+                        <p id="pdf-status" style="margin: 0; font-weight: 500; color: var(--text-secondary);"></p>
+                    </div>
+                    <input type="file" id="pdf-upload-input" accept=".pdf" style="display: none;">
+                </div>
+                <div id="unit-list-container" style="margin-top: 2rem;">
+                    <h2 class="card-title">單元列表</h2>
+                    <ul id="unit-list" class="unit-list">
+                        <!-- 單元將動態生成於此 -->
+                    </ul>
+                </div>
+            </div>
+            <div id="unit-content-container" class="card unit-content" style="display: none;">
+                <h2 id="unit-title" class="card-title"></h2>
+                <div id="unit-summary">
+                    <p id="unit-summary-content"></p>
+                </div>
+                <div id="unit-interactive-qa" style="margin-top: 1.5rem;">
+                     <h3>互動問答</h3>
+                     <p>對本單元有疑問嗎？</p>
+                     <button id="ask-ai-btn" class="btn btn-primary" style="margin-top: 0.5rem;">問 AI 助教</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI 助教 View -->
+        <div id="ai-view" class="view">
+            <h1 class="view-title">AI 智能助教</h1>
+            <div class="card chat-container">
+                <div class="chat-messages" id="chat-messages">
+                     <div class="chat-message"><div class="chat-bubble ai" id="ai-welcome-message">你好！我是你的專屬學習夥伴，有任何問題都可以問我！</div></div>
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" class="chat-input" placeholder="輸入你的問題..." rows="1"></textarea>
+                    <div class="chat-buttons">
+                        <button id="upload-img-btn" class="btn btn-secondary">📷</button>
+                        <button id="send-btn" class="btn btn-primary">傳送</button>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="image-upload-input" accept="image/*" style="display: none;">
+        </div>
+
+        <!-- 練習測驗 View -->
+        <div id="quiz-view" class="view">
+            <h1 class="view-title">練習與測驗</h1>
+            <div class="card">
+                <h2 class="card-title">開始測驗</h2>
+                <p id="quiz-topic-info">請先從「基礎觀念」選擇一個單元。</p>
+                <div style="margin-top: 1.5rem;">
+                    <button id="start-unit-quiz-btn" class="btn btn-primary" disabled>開始單元測驗</button>
+                </div>
+                <div id="quiz-display-area" style="margin-top: 2rem;"></div>
+            </div>
+        </div>
+
+        
+        <!-- 學習歷程 View -->
+        <div id="analytics-view" class="view">
+            <h1 class="view-title">學習歷程與報表</h1>
+             <div class="grid-container">
+                <div class="card">
+                    <h2 class="card-title">單元正確率統計</h2>
+                    <canvas id="accuracy-chart"></canvas>
+                </div>
+                 <div class="card">
+                    <h2 class="card-title">科目錯誤題數統計</h2>
+                    <canvas id="error-topic-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系統設定 View -->
+        <div id="settings-view" class="view">
+            <h1 class="view-title">系統設定</h1>
+            <div class="card">
+                <h2 class="card-title">帳號管理</h2>
+                <form>
+                    <div style="margin-bottom: 1rem;"><label>電子郵件: student@example.com</label></div>
+                    <div style="margin-bottom: 1.5rem;"><label for="password">更改密碼: <input type="password" id="password" class="chat-input"></label></div>
+                    <button class="btn btn-primary">儲存設定</button>
+                </form>
+            </div>
+            <div class="card" style="margin-top: 2rem;">
+                <h2 class="card-title">Gemini API 設定</h2>
+                <div style="margin-bottom: 1rem;">
+                    <label for="api-key-input" class="form-group-label" style="display: block; margin-bottom: .5rem; font-weight: 500; color: var(--text-secondary);">API 金鑰</label>
+                    <input type="password" id="api-key-input" class="chat-input" placeholder="請在此輸入您的 Gemini API 金鑰">
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <button id="save-api-key-btn" class="btn btn-primary">儲存金鑰</button>
+                    <button id="test-api-key-btn" class="btn btn-secondary">測試連線</button>
+                    <p id="api-status" style="margin: 0; font-weight: 500;"></p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const views = document.querySelectorAll('.view');
+        const themeCheckbox = document.getElementById('theme-checkbox');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+        const testApiKeyBtn = document.getElementById('test-api-key-btn');
+        const apiStatus = document.getElementById('api-status');
+
+        // --- 全局學習焦點 ---
+        let currentLearningScope = { stage: '', grade: '', publisher: '', subject: '', unit: '' };
+        let quizData = []; 
+        let learningHistory = [];
+        let uploadedPdfText = '';
+
+        // --- Gemini API 設定 ---
+        let API_KEY = ''; 
+
+        // --- 教科書資料庫 ---
+        const stages = {
+            "國小": ["國小一年級", "國小二年級", "國小三年級", "國小四年級", "國小五年級", "國小六年級"],
+            "國中": ["國中一年級", "國中二年級", "國中三年級"],
+            "高中": ["高中一年級", "高中二年級", "高中三年級"]
+        };
+        
+        const textbookData = {
+            "國小": {
+                "康軒": ["國語", "數學", "社會", "自然與生活科技", "英語"],
+                "南一": ["國語", "數學", "社會", "自然與生活科技", "英語"],
+                "翰林": ["國語", "數學", "社會", "自然與生活科技", "英語"]
+            },
+            "國中": {
+                "康軒": ["國文", "數學", "社會", "自然", "英語", "歷史", "地理", "公民"],
+                "南一": ["國文", "數學", "社會", "自然", "英語", "歷史", "地理", "公民"],
+                "翰林": ["國文", "數學", "社會", "自然", "英語", "歷史", "地理", "公民"]
+            },
+            "高中": {
+                "龍騰": ["國文", "英文", "數學A", "數學B", "歷史", "地理", "公民與社會"],
+                "南一": ["國文", "英文", "數學A", "數學B", "物理", "化學", "生物", "地球科學", "歷史", "地理", "公民與社會"],
+                "翰林": ["國文", "英文", "數學A", "數學B", "物理", "化學", "生物", "地球科學", "歷史", "地理", "公民與社會"],
+                "康軒": ["國文", "英文", "數學A", "數學B", "物理", "化學", "生物", "地球科學", "歷史", "地理", "公民與社會"]
+            }
+        };
+
+        // --- Helper 函數 ---
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        
+        async function callGeminiAPI(prompt, key, onRetry = null, imagePayload = null) {
+            const effectiveApiKey = key || API_KEY;
+            if (!effectiveApiKey) {
+                return "錯誤：尚未設定 Gemini API 金鑰。請在「系統設定」頁面中輸入您的 API Key。";
+            }
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${effectiveApiKey}`;
+            const MAX_RETRIES = 3;
+
+            const parts = [{ text: prompt }];
+            if (imagePayload) {
+                parts.push({
+                    inlineData: {
+                        mimeType: imagePayload.mimeType,
+                        data: imagePayload.data
+                    }
+                });
+            }
+            const payload = { contents: [{ parts: parts }] };
+
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (response.status === 503) {
+                        if (attempt < MAX_RETRIES) {
+                            const delay = Math.pow(2, attempt) * 1000;
+                            console.warn(`API 請求失敗 (503)，將在 ${delay / 1000} 秒後重試...`);
+                            if (onRetry) onRetry(attempt + 1, MAX_RETRIES);
+                            await sleep(delay);
+                            continue;
+                        } else {
+                            throw new Error(`API 請求失敗，狀態碼：${response.status} (已達最大重試次數)`);
+                        }
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error('API Error Response:', errorData);
+                        throw new Error(`API 請求失敗，狀態碼：${response.status}`);
+                    }
+                    const data = await response.json();
+                    if (data.candidates && data.candidates.length > 0) {
+                        return data.candidates[0].content.parts[0].text;
+                    } else {
+                        return "抱歉，AI 沒有提供有效的回覆。";
+                    }
+                } catch (error) {
+                    console.error(`Gemini API 呼叫時發生錯誤 (嘗試 ${attempt + 1}):`, error);
+                    if (attempt === MAX_RETRIES) {
+                        return "抱歉，與 AI 連線時發生錯誤，請檢查您的 API 金鑰與網路連線，或稍後再試。";
+                    }
+                }
+            }
+            return "抱歉，發生未預期的錯誤。";
+        }
+        
+        // --- API 金鑰管理 ---
+        function loadApiKey() {
+            API_KEY = localStorage.getItem('geminiApiKey') || '';
+            apiKeyInput.value = API_KEY;
+            if (API_KEY) {
+                apiStatus.textContent = '金鑰已載入';
+                apiStatus.style.color = 'var(--text-secondary)';
+            } else {
+                apiStatus.textContent = '尚未設定金鑰';
+                apiStatus.style.color = 'var(--warning-color)';
+            }
+        }
+        function saveApiKey() {
+            const newKey = apiKeyInput.value.trim();
+            if (newKey) {
+                localStorage.setItem('geminiApiKey', newKey);
+                API_KEY = newKey;
+                apiStatus.textContent = '金鑰已儲存！';
+                apiStatus.style.color = 'var(--success-color)';
+            } else {
+                localStorage.removeItem('geminiApiKey');
+                API_KEY = '';
+                apiStatus.textContent = '金鑰已清除。';
+                apiStatus.style.color = 'var(--warning-color)';
+            }
+        }
+        async function testApiKey() {
+            const keyToTest = apiKeyInput.value.trim();
+            if (!keyToTest) {
+                apiStatus.textContent = '請先輸入金鑰';
+                apiStatus.style.color = 'var(--warning-color)'; return;
+            }
+            apiStatus.textContent = '測試中...';
+            apiStatus.style.color = 'var(--text-secondary)';
+            const testPrompt = "你好";
+            const response = await callGeminiAPI(testPrompt, keyToTest);
+            if (response && !response.startsWith("錯誤：") && !response.startsWith("抱歉，")) {
+                apiStatus.textContent = '連線成功！';
+                apiStatus.style.color = 'var(--success-color)';
+            } else {
+                apiStatus.textContent = '連線失敗，請檢查金鑰。';
+                apiStatus.style.color = 'var(--danger-color)';
+            }
+        }
+        saveApiKeyBtn.addEventListener('click', saveApiKey);
+        testApiKeyBtn.addEventListener('click', testApiKey);
+
+        // --- 頁面切換與狀態更新 ---
+        function updateQuizViewTopic() {
+            const quizTopicInfo = document.getElementById('quiz-topic-info');
+            const startQuizBtn = document.getElementById('start-unit-quiz-btn');
+            if (currentLearningScope.unit) {
+                quizTopicInfo.textContent = `目前學習焦點：「${currentLearningScope.unit}」`;
+                startQuizBtn.disabled = false;
+            } else {
+                quizTopicInfo.textContent = '請先從「基礎觀念」選擇一個單元。';
+                startQuizBtn.disabled = true;
+            }
+        }
+
+        function updateAiTutorContext() {
+             const aiWelcome = document.getElementById('ai-welcome-message');
+             if(currentLearningScope.unit) {
+                 aiWelcome.textContent = `你好！我們目前正在學習「${currentLearningScope.unit}」，有什麼問題嗎？`;
+             } else {
+                 aiWelcome.textContent = '你好！我是你的專屬學習夥伴，有任何問題都可以問我！';
+             }
+        }
+
+        const switchView = (viewId, param = null) => {
+            views.forEach(view => view.classList.toggle('active', view.id === viewId));
+            navLinks.forEach(link => link.classList.toggle('active', link.dataset.view === viewId));
+            
+            if (viewId === 'analytics-view') renderAnalyticsCharts();
+            else if (viewId === 'quiz-view') updateQuizViewTopic();
+            else if (viewId === 'ai-view') {
+                 updateAiTutorContext();
+                 if (param) {
+                    const chatInput = document.getElementById('chat-input');
+                    chatInput.value = `請幫我解釋「${param}」這個單元的重點。`;
+                    chatInput.focus();
+                }
+            }
+        };
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const viewId = link.dataset.view;
+                window.location.hash = viewId.replace('-view', '');
+                switchView(viewId);
+            });
+        });
+
+        // --- 主題切換 ---
+        const applyTheme = (theme) => {
+            document.body.classList.toggle('dark-theme', theme === 'dark');
+            themeCheckbox.checked = (theme === 'dark');
+            if (document.getElementById('analytics-view').classList.contains('active')) {
+                renderAnalyticsCharts();
+            }
+        };
+        themeCheckbox.addEventListener('change', () => {
+            const theme = themeCheckbox.checked ? 'dark' : 'light';
+            localStorage.setItem('theme', theme);
+            applyTheme(theme);
+        });
+        
+        // --- AI 助教互動 (包含圖片上傳) ---
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chatMessages = document.getElementById('chat-messages');
+        const uploadImgBtn = document.getElementById('upload-img-btn');
+        const imageUploadInput = document.getElementById('image-upload-input');
+
+        const addMessage = (content, sender, isHtml = false) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${sender}`;
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = `chat-bubble ${sender}`;
+            if (isHtml) {
+                bubbleDiv.innerHTML = content;
+            } else {
+                bubbleDiv.textContent = content;
+            }
+            messageDiv.appendChild(bubbleDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        };
+
+        const handleSend = async () => {
+            const userInput = chatInput.value.trim();
+            if (userInput) {
+                addMessage(userInput, 'user');
+                chatInput.value = '';
+                addMessage('AI 正在思考中...', 'ai'); 
+                const aiBubbles = document.querySelectorAll('.chat-bubble.ai');
+                const thinkingBubble = aiBubbles[aiBubbles.length -1];
+                
+                let finalPrompt = userInput;
+                if (uploadedPdfText) {
+                    finalPrompt = `你是一位專業的AI家教。請優先根據以下提供的補充教材內容來回答使用者的問題。如果教材中找不到答案，請回答「根據您提供的講義，我找不到相關的資訊。」，不要使用網路知識。\n\n---補充教材開始---\n${uploadedPdfText}\n---補充教材結束---\n\n使用者的問題是：「${userInput}」`;
+                }
+
+                const onRetryCallback = (attempt, maxRetries) => {
+                    thinkingBubble.textContent = `AI 系統忙碌中，正在嘗試重新連線 (${attempt}/${maxRetries})...`;
+                };
+                const response = await callGeminiAPI(finalPrompt, null, onRetryCallback);
+                thinkingBubble.textContent = response;
+                MathJax.typesetPromise([thinkingBubble]);
+            }
+        };
+        sendBtn.addEventListener('click', handleSend);
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } });
+        
+        uploadImgBtn.addEventListener('click', () => imageUploadInput.click());
+        imageUploadInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const imageDataUrl = e.target.result;
+                addMessage(`<img src="${imageDataUrl}" style="max-width: 100%; border-radius: 10px;" alt="上傳的圖片">`, 'user', true);
+                addMessage('AI 正在解析圖片...', 'ai'); 
+                const aiBubbles = document.querySelectorAll('.chat-bubble.ai');
+                const thinkingBubble = aiBubbles[aiBubbles.length - 1];
+                const onRetryCallback = (attempt, maxRetries) => {
+                    thinkingBubble.textContent = `AI 系統忙碌中，正在嘗試重新連線 (${attempt}/${maxRetries})...`;
+                };
+                const [header, base64Data] = imageDataUrl.split(',');
+                const mimeType = header.match(/:(.*?);/)[1];
+                const imagePayload = { mimeType: mimeType, data: base64Data };
+                const prompt = "請辨識並解析這張圖片中的學術問題，並提供詳細的解題步驟。";
+                const response = await callGeminiAPI(prompt, null, onRetryCallback, imagePayload);
+                thinkingBubble.textContent = response;
+                MathJax.typesetPromise([thinkingBubble]);
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        });
+
+
+        // --- 學習歷程圖表 ---
+        let accuracyChart = null, errorTopicChart = null;
+        function renderAnalyticsCharts() {
+            // ... (程式碼同前一版, 未變更)
+        }
+        
+        // --- 基礎觀念學習頁動態邏輯 ---
+        const stageSelect = document.getElementById('stage-select');
+        const gradeSelect = document.getElementById('grade-select');
+        const publisherSelect = document.getElementById('publisher-select');
+        const subjectSelect = document.getElementById('subject-select');
+        const fetchUnitsBtn = document.getElementById('fetch-units-btn');
+        const unitList = document.getElementById('unit-list');
+        const unitContentContainer = document.getElementById('unit-content-container');
+        const unitTitle = document.getElementById('unit-title');
+        const unitSummaryContent = document.getElementById('unit-summary-content');
+        const askAiBtn = document.getElementById('ask-ai-btn');
+        
+        function clearAiChatHistory() {
+            chatMessages.innerHTML = '<div class="chat-message"><div class="chat-bubble ai" id="ai-welcome-message">你好！我是你的專屬學習夥伴，有任何問題都可以問我！</div></div>';
+        }
+
+        function populateStages() { Object.keys(stages).forEach(stage => stageSelect.add(new Option(stage, stage))); }
+        
+        function updateGrades() {
+            const selectedStage = stageSelect.value;
+            gradeSelect.innerHTML = '';
+            (stages[selectedStage] || []).forEach(grade => gradeSelect.add(new Option(grade, grade)));
+            updatePublishers();
+        }
+
+        function updatePublishers() {
+            const selectedStage = stageSelect.value;
+            publisherSelect.innerHTML = '';
+            const publishersForStage = Object.keys(textbookData[selectedStage] || {});
+            publishersForStage.forEach(publisher => publisherSelect.add(new Option(publisher, publisher)));
+            updateSubjects();
+        }
+        
+        function updateSubjects() {
+            const selectedStage = stageSelect.value;
+            const selectedPublisher = publisherSelect.value;
+            subjectSelect.innerHTML = '';
+            const subjects = textbookData[selectedStage]?.[selectedPublisher] || [];
+            subjects.forEach(subject => subjectSelect.add(new Option(subject, subject)));
+        }
+
+        async function updateUnits() {
+            unitList.innerHTML = '<li class="unit-item loading-item">AI 查詢中，請稍候...</li>';
+            unitContentContainer.style.display = 'none';
+            clearAiChatHistory();
+            
+            let prompt;
+            if (uploadedPdfText) {
+                unitList.innerHTML = '<li class="unit-item loading-item">AI 正在分析您的講義，請稍候...</li>';
+                prompt = `你是一個文件分析專家。請分析以下提供的文字內容，並從中提取出一個兩層式的章節目錄。每個標題一行，用換行符號分隔，主章節用「1.」這樣的數字編號，子章節用「1.1」這樣的數字編號。如果內容中沒有明顯的章節結構，請盡力整理出一個有邏輯的標題列表。不要包含任何前言或額外說明。\n\n---文件內容開始---\n${uploadedPdfText}\n---文件內容結束---`;
+            } else {
+                const selectedGrade = gradeSelect.value, selectedPublisher = publisherSelect.value, selectedSubject = subjectSelect.value;
+                if (!selectedGrade || !selectedPublisher || !selectedSubject) {
+                    unitList.innerHTML = '';
+                    return;
+                };
+                prompt = `你是一位非常熟悉臺灣學制的資深老師。請根據你的知識，列出「${selectedPublisher}」出版社為「${selectedGrade}」設計的「${selectedSubject}」課本中，常見的兩層式章節目錄。每個標題一行，用換行符號分隔，主章節用「1.」這樣的數字編號，子章節用「1.1」這樣的數字編號。請不要包含任何前言或額外說明。如果這個組合在真實世界中不太可能存在（例如國小沒有物理課），請直接回傳一行文字：「提醒：這個學程與科目的組合似乎不常見。」`;
+            }
+            
+            const response = await callGeminiAPI(prompt);
+            
+            unitList.innerHTML = '';
+            if (response.startsWith("錯誤：") || response.startsWith("抱歉，") || response.startsWith("提醒：")) {
+                 unitList.innerHTML = `<li class="unit-item loading-item">${response}</li>`;
+            } else {
+                const units = response.split('\n').filter(unit => unit.trim() !== '');
+                if (units.length > 0) {
+                    units.forEach(unitText => {
+                        const li = document.createElement('li'), trimmedUnit = unitText.trim();
+                        li.textContent = trimmedUnit;
+                        li.dataset.unit = trimmedUnit;
+                        if (trimmedUnit.includes('.') && trimmedUnit.match(/^\d+\.\d+/)) {
+                            li.className = 'unit-item unit-item-sub'; // Initially hidden via CSS
+                        } else {
+                            li.className = 'unit-item unit-item-main'; // Main item
+                        }
+                        unitList.appendChild(li);
+                    });
+                } else { unitList.innerHTML = '<li class="unit-item loading-item">AI 未回傳有效的章節列表。</li>'; }
+            }
+        }
+        
+        unitList.addEventListener('click', (e) => {
+            const targetLi = e.target.closest('li.unit-item'); // Get the LI element
+            if (!targetLi) return;
+
+            // Handle main unit click for collapsing/expanding
+            if (targetLi.classList.contains('unit-item-main')) {
+                targetLi.classList.toggle('expanded');
+                let nextElement = targetLi.nextElementSibling;
+                while (nextElement && nextElement.classList.contains('unit-item-sub')) {
+                    nextElement.classList.toggle('visible');
+                    nextElement = nextElement.nextElementSibling;
+                }
+            }
+            
+            // Handle any unit click for displaying content
+            if (targetLi.dataset.unit) {
+                displayUnitContent(targetLi.dataset.unit);
+            }
+        });
+
+
+        async function displayUnitContent(unit) {
+            unitContentContainer.style.display = 'block';
+            unitTitle.textContent = unit;
+            unitSummaryContent.textContent = 'AI 正在為您產生多維度學習分析，請稍候...';
+            
+            currentLearningScope = {
+                stage: stageSelect.value, grade: gradeSelect.value,
+                publisher: publisherSelect.value, subject: subjectSelect.value,
+                unit: unit
+            };
+
+            let finalPrompt = `你是一位頂尖的AI學習分析師與家教老師。`;
+
+            if (uploadedPdfText) {
+                finalPrompt += `除了你的既有知識外，請優先參考並整合以下提供的補充教材內容來生成你的回答。補充教材內容如下：\n\n---START OF SUPPLEMENTARY TEXT---\n${uploadedPdfText}\n---END OF SUPPLEMENTARY TEXT---\n\n`;
+            }
+
+            finalPrompt += `請為臺灣的${currentLearningScope.grade}學生，用純文字、條列式的方式，清晰地針對「${currentLearningScope.unit}」這個單元，提供以下三項資訊。請使用【】作為標題的括號，並用「-」作為條列項目的開頭。請不要使用任何 Markdown 語法 (例如 *, #, \`)。
+
+【重點整理】
+- [此處條列式整理出核心觀念與公式]
+
+【常考重點】
+- [此處條列式分析出最常見的考題類型與解題技巧]
+
+【網路筆記重點】
+- [此處綜合網路上公開的學習筆記，整理出學生們最常標註或討論的重點與技巧]`;
+            
+            const onRetryCallback = (attempt, maxRetries) => {
+                unitSummaryContent.textContent = `AI 系統忙碌中，正在嘗試重新連線 (${attempt}/${maxRetries})...`;
+            };
+            const summary = await callGeminiAPI(finalPrompt, null, onRetryCallback);
+            unitSummaryContent.textContent = summary;
+            MathJax.typesetPromise([unitSummaryContent]);
+            askAiBtn.dataset.unit = unit;
+        }
+        
+        askAiBtn.addEventListener('click', (e) => {
+            const unitToAsk = e.target.dataset.unit;
+            window.location.hash = 'ai';
+            switchView('ai-view', unitToAsk);
+        });
+        
+        // --- 練習測驗邏輯 ---
+        const startQuizBtn = document.getElementById('start-unit-quiz-btn');
+        const quizDisplayArea = document.getElementById('quiz-display-area');
+        async function generateAndRenderQuiz() {
+            if (!currentLearningScope.unit) return;
+            quizDisplayArea.innerHTML = '<p>AI 正在為您出題中，請稍候...</p>';
+            startQuizBtn.disabled = true;
+
+            let prompt;
+            if (uploadedPdfText) {
+                prompt = `你是一位專業的出題老師。你的任務是為「臺灣${currentLearningScope.grade}」的學生，針對「${currentLearningScope.unit}」這個單元產生5題單選題測驗。請遵循以下步驟：
+
+1. **首要任務**：請先分析下面提供的「---教材內容---」文字。優先從這份教材中找出與該單元最相關的5題單選題。
+2. **備用方案**：如果在教材中找不到足夠的相關題目，請改用你的網路知識庫，找出或生成5題關於此單元的「重要範例題」或「歷屆考題」。
+3. **輸出格式**：無論題目來源為何，都請嚴格依照以下JSON格式回傳，不要包含任何額外說明或\`\`\`json標記：
+[{"question": "第一題題目", "options": ["選項A", "選項B", "選項C", "選項D"], "answer": 0}]
+
+---教材內容開始---
+${uploadedPdfText}
+---教材內容結束---`;
+            } else {
+                prompt = `你是一位專業的出題老師。請針對臺灣${currentLearningScope.grade}的「${currentLearningScope.unit}」這個單元，找出或生成5題「重要範例題」或「歷屆考題」形式的單選題測驗。請嚴格依照以下JSON格式回傳，不要包含任何額外說明或\`\`\`json標記：
+[{"question": "第一題題目", "options": ["選項A", "選項B", "選項C", "選項D"], "answer": 0}]`;
+            }
+
+            const response = await callGeminiAPI(prompt);
+            startQuizBtn.disabled = false;
+            try {
+                const jsonMatch = response.match(/\[[\s\S]*\]/);
+                if (!jsonMatch) throw new Error("AI 回應中找不到有效的 JSON 格式。");
+                quizData = JSON.parse(jsonMatch[0]);
+                renderQuizForm(quizData);
+            } catch (e) {
+                console.error("解析測驗JSON失敗:", e, "收到的回應:", response);
+                quizDisplayArea.innerHTML = '<p>抱歉，AI回傳的題目格式有誤，無法產生測驗。</p>';
+            }
+        }
+        function renderQuizForm(questions) {
+            let formHTML = '<form id="quiz-form">';
+            questions.forEach((q, index) => {
+                formHTML += `<div class="quiz-question"><p><strong>${index + 1}. ${q.question}</strong></p><ul class="quiz-options">`;
+                q.options.forEach((opt, optIndex) => {
+                    formHTML += `<li><label><input type="radio" name="q${index}" value="${optIndex}"> ${opt}</label></li>`;
+                });
+                formHTML += `</ul></div>`;
+            });
+            formHTML += `<button type="submit" class="btn btn-secondary">提交答案</button></form><div class="quiz-result" id="quiz-result-area"></div>`;
+            quizDisplayArea.innerHTML = formHTML;
+            document.getElementById('quiz-form').addEventListener('submit', (e) => { e.preventDefault(); gradeQuiz(); });
+        }
+        function gradeQuiz() {
+            const form = document.getElementById('quiz-form'), resultArea = document.getElementById('quiz-result-area');
+            let score = 0;
+            quizData.forEach((q, index) => {
+                const selected = form.querySelector(`input[name="q${index}"]:checked`);
+                const questionDiv = form.querySelectorAll('.quiz-question')[index];
+                questionDiv.querySelectorAll('.correct-answer, .wrong-answer').forEach(el => el.remove());
+                if (selected) {
+                    const selectedAnswer = parseInt(selected.value), correctAnswer = q.answer;
+                    const answerLabel = selected.parentElement;
+                    if (selectedAnswer === correctAnswer) {
+                        score++;
+                        answerLabel.insertAdjacentHTML('beforeend', '<span class="correct-answer"> (正確)</span>');
+                    } else {
+                        answerLabel.insertAdjacentHTML('beforeend', `<span class="wrong-answer"> (錯誤，正確答案是: ${q.options[correctAnswer]})</span>`);
+                    }
+                }
+            });
+            resultArea.innerHTML = `你的得分: ${score} / ${quizData.length}`;
+            
+            learningHistory.push({
+                unit: currentLearningScope.unit,
+                subject: currentLearningScope.subject,
+                score: score,
+                total: quizData.length,
+                timestamp: new Date()
+            });
+        }
+        startQuizBtn.addEventListener('click', generateAndRenderQuiz);
+        
+        // --- PDF 上傳邏輯 ---
+        const uploadPdfBtn = document.getElementById('upload-pdf-btn');
+        const pdfUploadInput = document.getElementById('pdf-upload-input');
+        const pdfStatus = document.getElementById('pdf-status');
+        
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
+
+        uploadPdfBtn.addEventListener('click', () => pdfUploadInput.click());
+        pdfUploadInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file || !file.type.includes('pdf')) return;
+
+            pdfStatus.textContent = '正在解析 PDF...';
+            uploadPdfBtn.disabled = true;
+
+            try {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const arrayBuffer = e.target.result;
+                    const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        fullText += textContent.items.map(item => item.str).join(' ');
+                    }
+                    uploadedPdfText = fullText;
+                    pdfStatus.innerHTML = `已載入: ${file.name} <button class="clear-pdf-btn">清除</button>`;
+                    pdfStatus.querySelector('.clear-pdf-btn').addEventListener('click', () => {
+                        uploadedPdfText = '';
+                        pdfStatus.textContent = '';
+                        pdfUploadInput.value = '';
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            } catch (error) {
+                console.error("PDF 解析失敗:", error);
+                pdfStatus.textContent = 'PDF 解析失敗。';
+            } finally {
+                uploadPdfBtn.disabled = false;
+            }
+        });
+
+        // --- 初始化 ---
+        stageSelect.addEventListener('change', () => {
+            updateGrades();
+        });
+        
+        publisherSelect.addEventListener('change', () => {
+             updateSubjects();
+        });
+        
+        fetchUnitsBtn.addEventListener('click', updateUnits);
+
+        loadApiKey();
+        populateStages();
+        updateGrades();
+        
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        applyTheme(savedTheme);
+        const initialHash = window.location.hash.substring(1);
+        if (initialHash) { switchView(initialHash + '-view'); } 
+        else { switchView('dashboard-view'); }
+    });
+    </script>
+</body>
+</html>
+
